@@ -1,0 +1,64 @@
+{
+  "name": "websocket-crypto-api",
+  "version": "1.0.0",
+  "description": "---",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oneexbit/websocket-crypto-api.git"
+  },
+  "keywords": [
+    "crypto",
+    "api",
+    "websocket",
+    "exchange",
+    "currency",
+    "cryptocurrency",
+    "binance",
+    "okex",
+    "bitfinex",
+    "hitbtc",
+    "poloniex",
+    "bitmex",
+    "bitmex-testnet",
+    "cryptobridge",
+    "crex24"
+  ],
+  "author": "Oneexbit Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/oneexbit/websocket-crypto-api/issues"
+  },
+  "homepage": "https://github.com/oneexbit/websocket-crypto-api#readme",
+  "dependencies": {
+    "babel": "^6.23.0",
+    "babel-jest": "^24.8.0",
+    "btsdex-fix": "^0.6.6",
+    "crypto-js": "^3.1.9-1",
+    "decimal.js": "^10.0.2",
+    "isomorphic-fetch": "^2.2.1",
+    "jest": "^24.8.0",
+    "pako": "^1.0.8",
+    "ws": "^7.0.0"
+  },
+  "jest": {
+    "verbose": true,
+    "testEnvironment": "node",
+    "moduleFileExtensions": [
+      "js"
+    ],
+    "globals": {
+      "NODE_ENV": "test"
+    },
+    "transform": {
+      "^.+\\.js$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/",
+      "./public.test.js"
+    ]
+  }
+}
