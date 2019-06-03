@@ -1,13 +1,13 @@
-import ReWS from 'reconnecting-websocket';
-import CryptoJS from 'crypto-js';
-import { Decimal } from 'decimal.js';
-import Exchanges from './baseExchange';
+import ReWS from "reconnecting-websocket";
+import CryptoJS from "crypto-js";
+import { Decimal } from "decimal.js";
+import Exchanges from "./baseExchange";
 
 export default class BitmexTestNet extends Exchanges {
   constructor(proxy) {
     super();
-    this.name = 'Bitmex';
-    this._mainUrl = 'wss://testnet.bitmex.com/realtime';
+    this.name = "Bitmex";
+    this._mainUrl = "wss://testnet.bitmex.com/realtime";
     this._socket = undefined;
 
     this.tradeLog = [];
@@ -20,58 +20,58 @@ export default class BitmexTestNet extends Exchanges {
       depth: symbol => `orderBookL2:${symbol}`,
       depthLevel: (symbol, level) =>
         `${
-          this._proxy_enable ? this._proxy : ''
+          this._proxy_enable ? this._proxy : ""
         }https://testnet.bitmex.com/api/v1/orderBook/L2?symbol=${symbol}&depth=${level}`,
       kline: (symbol, interval) =>
         `${
-          this._proxy_enable ? this._proxy : ''
+          this._proxy_enable ? this._proxy : ""
         }https://testnet.bitmex.com/api/v1/trade/bucketed?binSize=${interval}&partial=false&symbol=${symbol}&count=1&reverse=true`,
-      trade: symbol => `trade:${symbol}`,
+      trade: symbol => `trade:${symbol}`
     };
 
     this.times = {
-      '1': '1m',
-      '5': '5m',
-      '60': '1h',
-      '1D': '1d',
+      "1": "1m",
+      "5": "5m",
+      "60": "1h",
+      "1D": "1d"
     };
 
     this.ms = {
-      '1': 60 * 1000,
-      '5': 5 * 60 * 1000,
-      '60': 60 * 60 * 1000,
-      '1D': 24 * 60 * 60 * 1000,
+      "1": 60 * 1000,
+      "5": 5 * 60 * 1000,
+      "60": 60 * 60 * 1000,
+      "1D": 24 * 60 * 60 * 1000
     };
 
     this._handlers = {};
     this._subscriptions = {
-      trade: '',
-      orderbook: '',
-      kline: '',
+      trade: "",
+      orderbook: "",
+      kline: ""
     };
     this._socketPromise = new Promise(() => {});
 
     this.recognizeType = (ordType, pegOffsetValue) => {
-      if (ordType === 'Stop' && pegOffsetValue) {
-        return 'MarginalTrailingStop';
+      if (ordType === "Stop" && pegOffsetValue) {
+        return "MarginalTrailingStop";
       }
 
       return this.typeMapping[ordType];
     };
 
     this.typeMapping = {
-      Limit: 'MarginalLimit',
-      Market: 'MarginalMarket',
-      Stop: 'MarginalStopMarket',
-      StopLimit: 'MarginalStopLimit',
-      LimitIfTouched: 'MarginalTakeLimit',
-      MarketIfTouched: 'MarginalTakeMarket',
+      Limit: "MarginalLimit",
+      Market: "MarginalMarket",
+      Stop: "MarginalStopMarket",
+      StopLimit: "MarginalStopLimit",
+      LimitIfTouched: "MarginalTakeLimit",
+      MarketIfTouched: "MarginalTakeMarket"
     };
 
     this.status = {
-      New: 'open',
-      Filled: 'close',
-      Canceled: ' canceled',
+      New: "open",
+      Filled: "close",
+      Canceled: " canceled"
     };
   }
 
@@ -83,21 +83,21 @@ export default class BitmexTestNet extends Exchanges {
     return {
       margin: {
         isActive: true,
-        componentList: ['position', 'open', 'history', 'balance'],
+        componentList: ["position", "open", "history", "balance"],
         orderTypes: [
-          'MarginalLimit',
-          'MarginalMarket',
-          'MarginalStopMarket',
-          'MarginalStopLimit',
-          'MarginalTakeLimit',
-          'MarginalTakeMarket',
-          'MarginalTrailingStop',
-        ],
+          "MarginalLimit",
+          "MarginalMarket",
+          "MarginalStopMarket",
+          "MarginalStopLimit",
+          "MarginalTakeLimit",
+          "MarginalTakeMarket",
+          "MarginalTrailingStop"
+        ]
       },
       exchange: {
-        isActive: false,
+        isActive: false
       },
-      intervals: this.getSupportedInterval(),
+      intervals: this.getSupportedInterval()
     };
   }
 
@@ -105,10 +105,10 @@ export default class BitmexTestNet extends Exchanges {
     return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   }
 
-  hmac(request, secret, hash = 'sha256', digest = 'hex') {
+  hmac(request, secret, hash = "sha256", digest = "hex") {
     const result = CryptoJS[`Hmac${hash.toUpperCase()}`](request, secret);
     if (digest) {
-      const encoding = digest === 'binary' ? 'Latin1' : this.capitalize(digest);
+      const encoding = digest === "binary" ? "Latin1" : this.capitalize(digest);
       return result.toString(CryptoJS.enc[this.capitalize(encoding)]);
     }
     return result;
@@ -120,49 +120,58 @@ export default class BitmexTestNet extends Exchanges {
   // 'symbol=XBTUSD&leverage=15';
   // 'https://testnet.bitmex.com/api/v1/position/leverage';
 
-  _pCall(path, data = {}, method = 'GET', { apiKey, apiSecret }) {
+  _pCall(path, data = {}, method = "GET", { apiKey, apiSecret }) {
     if (!apiKey || !apiSecret) {
-      throw new Error('You need to pass an API key and secret to make authenticated calls.');
+      throw new Error(
+        "You need to pass an API key and secret to make authenticated calls."
+      );
     }
 
-    return Promise.resolve(Math.round(new Date().getTime() / 1000) + 60).then(timestamp => {
-      const postBody = Object.keys(data).length === 0 ? '' : JSON.stringify(data);
-      const signature = this.hmac(method + path + timestamp + postBody, apiSecret);
-      const headers = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'api-expires': timestamp,
-        'api-key': apiKey,
-        'api-signature': signature,
-      };
-      let requestOptions = {};
-      if (method === 'GET') {
-        requestOptions = {
-          headers,
-          method,
+    return Promise.resolve(Math.round(new Date().getTime() / 1000) + 60).then(
+      timestamp => {
+        const postBody =
+          Object.keys(data).length === 0 ? "" : JSON.stringify(data);
+        const signature = this.hmac(
+          method + path + timestamp + postBody,
+          apiSecret
+        );
+        const headers = {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "api-expires": timestamp,
+          "api-key": apiKey,
+          "api-signature": signature
         };
-      } else {
-        requestOptions = {
-          headers,
-          method,
-          body: JSON.stringify(data),
-        };
-      }
+        let requestOptions = {};
+        if (method === "GET") {
+          requestOptions = {
+            headers,
+            method
+          };
+        } else {
+          requestOptions = {
+            headers,
+            method,
+            body: JSON.stringify(data)
+          };
+        }
 
-      return fetch(`https://testnet.bitmex.com${path}`, requestOptions)
-        .then(r => {
-          if (r.status === 401) throw new Error('Invalid api keys or insufficient permissions');
-          if (r.status === 403) throw new Error('Access deny');
-          return r;
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.error) {
-            throw new Error(data.error.message);
-          }
-          return data;
-        });
-    });
+        return fetch(`https://testnet.bitmex.com${path}`, requestOptions)
+          .then(r => {
+            if (r.status === 401)
+              throw new Error("Invalid api keys or insufficient permissions");
+            if (r.status === 403) throw new Error("Access deny");
+            return r;
+          })
+          .then(r => r.json())
+          .then(data => {
+            if (data.error) {
+              throw new Error(data.error.message);
+            }
+            return data;
+          });
+      }
+    );
   }
 
   _setupWebSocket(eventHandler, path, type) {
@@ -174,7 +183,7 @@ export default class BitmexTestNet extends Exchanges {
       const ws = (this._socket = new ReWS(this._mainUrl, [], {
         WebSocket: this.websocket,
         connectionTimeout: 5000,
-        debug: false,
+        debug: false
       }));
       ws.onopen = () => {
         Resolver();
@@ -188,7 +197,7 @@ export default class BitmexTestNet extends Exchanges {
 
     this._socketPromise.then(() => {
       this._subscriptions[type] = path;
-      this._handlers[path.split(':')[0]] = eventHandler;
+      this._handlers[path.split(":")[0]] = eventHandler;
       this._socket.send(`{ "op": "subscribe", "args": ["${path}"] }`);
     });
   }
@@ -199,7 +208,10 @@ export default class BitmexTestNet extends Exchanges {
     }
 
     this._socket_kline = setInterval(() => {
-      fetch(path, { mode: 'cors', headers: { 'x-requested-with': 'XMLHttpRequest' } })
+      fetch(path, {
+        mode: "cors",
+        headers: { "x-requested-with": "XMLHttpRequest" }
+      })
         .then(resp => {
           return resp.json();
         })
@@ -211,14 +223,18 @@ export default class BitmexTestNet extends Exchanges {
 
   closeTrade() {
     if (this._socket)
-      this._socket.send(`{ "op": "unsubscribe", "args": ["${this._subscriptions.trade}"] }`);
-    this._subscriptions.trade = '';
+      this._socket.send(
+        `{ "op": "unsubscribe", "args": ["${this._subscriptions.trade}"] }`
+      );
+    this._subscriptions.trade = "";
   }
 
   closeOB() {
     if (this._socket)
-      this._socket.send(`{ "op": "unsubscribe", "args": ["${this._subscriptions.orderbook}"] }`);
-    this._subscriptions.orderbook = '';
+      this._socket.send(
+        `{ "op": "unsubscribe", "args": ["${this._subscriptions.orderbook}"] }`
+      );
+    this._subscriptions.orderbook = "";
   }
 
   closeKline() {
@@ -226,7 +242,7 @@ export default class BitmexTestNet extends Exchanges {
   }
 
   onTrade(symbol, eventHandler) {
-    const newSymbol = symbol.replace('/', '');
+    const newSymbol = symbol.replace("/", "");
     const customEventHandler = trade => {
       if (this.tradeLog.indexOf(trade.id) === -1) {
         this.tradeLog.push(trade.id);
@@ -239,7 +255,7 @@ export default class BitmexTestNet extends Exchanges {
 
     const handler = res => {
       if (!res.success) {
-        if (res.action === 'insert' && res.data) {
+        if (res.action === "insert" && res.data) {
           res.data.forEach(el => {
             if (newSymbol === el.symbol) {
               const d = new Date(el.timestamp);
@@ -250,7 +266,7 @@ export default class BitmexTestNet extends Exchanges {
                 price: el.price,
                 amount: el.homeNotional,
                 symbol,
-                exchange: 'bitmex-testnet',
+                exchange: "bitmex-testnet"
               };
               customEventHandler(trade);
             }
@@ -274,16 +290,20 @@ export default class BitmexTestNet extends Exchanges {
               price: el.price,
               amount: el.homeNotional,
               symbol,
-              exchange: 'bitmex-testnet',
+              exchange: "bitmex-testnet"
             });
           }
         });
-        return this._setupWebSocket(handler, this.streams.trade(newSymbol), 'trade');
+        return this._setupWebSocket(
+          handler,
+          this.streams.trade(newSymbol),
+          "trade"
+        );
       });
   }
 
   onDepthUpdate(symbol, eventHandler) {
-    const restSymbol = symbol.replace('/', '');
+    const restSymbol = symbol.replace("/", "");
 
     const handler = res => {
       const responseSymbol = res.data[0].symbol;
@@ -291,51 +311,51 @@ export default class BitmexTestNet extends Exchanges {
         const update = {
           asks: [],
           bids: [],
-          type: 'update',
-          exchange: 'bitmex-testnet',
-          symbol,
+          type: "update",
+          exchange: "bitmex-testnet",
+          symbol
         };
 
-        if (res.action === 'partial') {
+        if (res.action === "partial") {
           const snapshot = {
             asks: [],
             bids: [],
-            type: 'snapshot',
-            exchange: 'bitmex-testnet',
-            symbol,
+            type: "snapshot",
+            exchange: "bitmex-testnet",
+            symbol
           };
 
           res.data.forEach(r => {
             this._dbIds[r.id] = r.price;
-            if (r.side === 'Sell') {
+            if (r.side === "Sell") {
               snapshot.asks.push([r.price, r.size / r.price]);
             } else {
               snapshot.bids.push([r.price, r.size / r.price]);
             }
           });
           eventHandler(snapshot);
-        } else if (res.action === 'update') {
+        } else if (res.action === "update") {
           res.data.forEach(r => {
-            if (r.side === 'Sell') {
+            if (r.side === "Sell") {
               update.asks.push([this._dbIds[r.id], r.size / this._dbIds[r.id]]);
             } else {
               update.bids.push([this._dbIds[r.id], r.size / this._dbIds[r.id]]);
             }
           });
           eventHandler(update);
-        } else if (res.action === 'insert') {
+        } else if (res.action === "insert") {
           res.data.forEach(r => {
             this._dbIds[r.id] = r.price;
-            if (r.side === 'Sell') {
+            if (r.side === "Sell") {
               update.asks.push([r.price, r.size / r.price]);
             } else {
               update.bids.push([r.price, r.size / r.price]);
             }
           });
           eventHandler(update);
-        } else if (res.action === 'delete') {
+        } else if (res.action === "delete") {
           res.data.forEach(r => {
-            if (r.side === 'Sell') {
+            if (r.side === "Sell") {
               update.asks.push([this._dbIds[r.id], 0]);
             } else {
               update.bids.push([this._dbIds[r.id], 0]);
@@ -346,11 +366,15 @@ export default class BitmexTestNet extends Exchanges {
         }
       }
     };
-    return this._setupWebSocket(handler, this.streams.depth(restSymbol), 'orderbook');
+    return this._setupWebSocket(
+      handler,
+      this.streams.depth(restSymbol),
+      "orderbook"
+    );
   }
 
   onKline(symbol, interval, eventHandler) {
-    const newSymbol = symbol.replace('/', '');
+    const newSymbol = symbol.replace("/", "");
 
     const handler = data => {
       if (data && data.length > 0) {
@@ -362,7 +386,7 @@ export default class BitmexTestNet extends Exchanges {
           low: k.low,
           open: k.open,
           time: d.getTime(),
-          volume: k.volume,
+          volume: k.volume
         };
         eventHandler(newData);
       }
@@ -370,13 +394,15 @@ export default class BitmexTestNet extends Exchanges {
     return this._setupWebSocketEmulator(
       handler,
       this.streams.kline(newSymbol, this.times[interval]),
-      'kline'
+      "kline"
     );
   }
 
   async getPairs() {
     return await fetch(
-      `${this._proxy_enable ? this._proxy : ''}https://testnet.bitmex.com/api/v1/instrument/active`
+      `${
+        this._proxy_enable ? this._proxy : ""
+      }https://testnet.bitmex.com/api/v1/instrument/active`
     )
       .then(r => r.json())
       .then(r => {
@@ -394,12 +420,12 @@ export default class BitmexTestNet extends Exchanges {
             high: pair.highPrice ? pair.highPrice : 0,
             low: pair.lowPrice ? pair.lowPrice : 0,
             tickSize: pair.tickSize,
-            quote: pair.positionCurrency ? pair.positionCurrency : 'ETH',
-            base: pair.quoteCurrency ? pair.quoteCurrency : 'ETH',
-            maxLeverage: 1 / pair.initMargin,
+            quote: pair.positionCurrency ? pair.positionCurrency : "ETH",
+            base: pair.quoteCurrency ? pair.quoteCurrency : "ETH",
+            maxLeverage: 1 / pair.initMargin
           };
           if (data.price !== 0) {
-            if (base === 'USD') {
+            if (base === "USD") {
               pairs[base].push(data);
             } else {
               pairs.ALT.push(data);
@@ -411,15 +437,17 @@ export default class BitmexTestNet extends Exchanges {
       });
   }
 
-  async getKline(pair = 'XBT/USD', interval = 60, start, end) {
+  async getKline(pair = "XBT/USD", interval = 60, start, end) {
     if (!end) end = new Date().getTime() / 1000;
     try {
-      const symbol = pair.replace('/', '');
-      const startTime = new Date(end * 1000 - 750 * this.ms[interval]).toISOString();
+      const symbol = pair.replace("/", "");
+      const startTime = new Date(
+        end * 1000 - 750 * this.ms[interval]
+      ).toISOString();
 
       return fetch(
         `${
-          this._proxy_enable ? this._proxy : ''
+          this._proxy_enable ? this._proxy : ""
         }https://testnet.bitmex.com/api/v1/trade/bucketed?binSize=${
           this.times[interval]
         }&partial=false&symbol=${symbol}&count=750&startTime=${startTime}`
@@ -434,7 +462,7 @@ export default class BitmexTestNet extends Exchanges {
               high: obj.high,
               low: obj.low,
               close: obj.close,
-              volume: obj.volume,
+              volume: obj.volume
             };
           });
         });
@@ -444,25 +472,30 @@ export default class BitmexTestNet extends Exchanges {
   }
 
   async getBalance(credentials) {
-    return this._pCall('/api/v1/user/margin?currency=XBt', {}, 'GET', credentials).then(data => {
+    return this._pCall(
+      "/api/v1/user/margin?currency=XBt",
+      {},
+      "GET",
+      credentials
+    ).then(data => {
       return {
         margin: {
           XBT: {
-            coin: 'XBT',
+            coin: "XBT",
             free: data.availableMargin / 100000000,
             used: (data.marginBalance - data.availableMargin) / 100000000,
-            total: data.marginBalance / 100000000,
-          },
-        },
+            total: data.marginBalance / 100000000
+          }
+        }
       };
     });
   }
 
   async getOpenOrders(credentials) {
     return this._pCall(
-      '/api/v1/order?filter=%7B%22ordStatus%22%3A%22New%22%7D&count=500&reverse=true',
+      "/api/v1/order?filter=%7B%22ordStatus%22%3A%22New%22%7D&count=500&reverse=true",
       {},
-      'GET',
+      "GET",
       credentials
     ).then(data => {
       return data.map(el => {
@@ -487,19 +520,19 @@ export default class BitmexTestNet extends Exchanges {
           cost: el.cumQty * el.price,
           fee: {
             symbol: 0,
-            value: 0,
-          },
+            value: 0
+          }
         };
       });
     });
   }
 
   async getClosedOrders(credentials, { pair } = {}) {
-    const symbol = pair.replace('/', '');
+    const symbol = pair.replace("/", "");
     return this._pCall(
       `/api/v1/order?symbol=${symbol}&filter=%7B%22ordStatus%22%3A%22Filled%22%7D&count=500&reverse=true`,
       {},
-      'GET',
+      "GET",
       credentials
     ).then(data => {
       return data.map(el => {
@@ -524,19 +557,19 @@ export default class BitmexTestNet extends Exchanges {
           cost: el.cumQty * el.price,
           fee: {
             symbol: 0,
-            value: 0,
-          },
+            value: 0
+          }
         };
       });
     });
   }
 
   async getAllOrders(credentials, { pair, orderId }) {
-    const symbol = pair.replace('/', '');
+    const symbol = pair.replace("/", "");
     let url = `/api/v1/order?symbol=${symbol}&count=500&reverse=true`;
     if (orderId)
       url = `/api/v1/order?filter=%7B%22orderID%22%3A%22${orderId}%22%7D&count=500&reverse=true`;
-    return this._pCall(url, {}, 'GET', credentials).then(data => {
+    return this._pCall(url, {}, "GET", credentials).then(data => {
       return data.map(el => {
         const timestamp = new Date(el.timestamp).getTime();
         const lastTimestamp = new Date(el.transactTime).getTime();
@@ -558,15 +591,20 @@ export default class BitmexTestNet extends Exchanges {
           cost: el.cumQty * el.price,
           fee: {
             symbol: 0,
-            value: 0,
-          },
+            value: 0
+          }
         };
       });
     });
   }
 
   async getPositions(credentials) {
-    return this._pCall('/api/v1/position?count=10000', {}, 'GET', credentials).then(data => {
+    return this._pCall(
+      "/api/v1/position?count=10000",
+      {},
+      "GET",
+      credentials
+    ).then(data => {
       return data.map(el => {
         const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
         return {
@@ -582,23 +620,31 @@ export default class BitmexTestNet extends Exchanges {
           isOpen: el.isOpen,
           roe: el.unrealisedRoePcnt,
           markPrice: el.markPrice,
-          crossMargin: el.crossMargin,
+          crossMargin: el.crossMargin
         };
       });
     });
   }
 
   async setLeverage(credenials, { pair, leverage }) {
-    const symbol = pair.replace('/', '');
-    return this._pCall('/api/v1/position/leverage', { symbol, leverage }, 'POST', credenials).then(
-      () => {
-        return this.getPositions(credenials);
-      }
-    );
+    const symbol = pair.replace("/", "");
+    return this._pCall(
+      "/api/v1/position/leverage",
+      { symbol, leverage },
+      "POST",
+      credenials
+    ).then(() => {
+      return this.getPositions(credenials);
+    });
   }
 
   async cancelOrder(credentials, { orderId }) {
-    return this._pCall('/api/v1/order', { orderID: orderId }, 'DELETE', credentials).then(data => {
+    return this._pCall(
+      "/api/v1/order",
+      { orderID: orderId },
+      "DELETE",
+      credentials
+    ).then(data => {
       return data.map(el => {
         const timestamp = new Date(el.timestamp).getTime();
         const lastTimestamp = new Date(el.transactTime).getTime();
@@ -619,8 +665,8 @@ export default class BitmexTestNet extends Exchanges {
           cost: el.cumQty * el.price,
           fee: {
             symbol: 0,
-            value: 0,
-          },
+            value: 0
+          }
         };
       });
     });
@@ -628,59 +674,61 @@ export default class BitmexTestNet extends Exchanges {
 
   async createOrder(credentials, data) {
     if (!data) {
-      throw Error('Need pass oder data object');
+      throw Error("Need pass oder data object");
     }
     if (!data.type) {
-      throw Error('Need pass order type');
+      throw Error("Need pass order type");
     }
     if (!data.pair) {
-      throw Error('Need pass order pair');
+      throw Error("Need pass order pair");
     }
     if (!data.side) {
-      throw Error('Need pass order side');
+      throw Error("Need pass order side");
     }
     if (!data.volume) {
-      throw Error('Need pass order volume');
+      throw Error("Need pass order volume");
     }
-    const symbol = data.pair.replace('/', '');
+    const symbol = data.pair.replace("/", "");
 
-    if (data.type === 'MarginalMarket') {
+    if (data.type === "MarginalMarket") {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'Market',
-        symbol,
+        type: "Market",
+        symbol
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
-    if (data.type === 'MarginalLimit') {
+    if (data.type === "MarginalLimit") {
       if (!data.price) {
-        throw Error('Need pass order price');
+        throw Error("Need pass order price");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -697,45 +745,47 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'Limit',
+        type: "Limit",
         symbol,
-        price,
+        price
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
 
-    if (data.type === 'MarginalStopLimit') {
+    if (data.type === "MarginalStopLimit") {
       if (!data.price) {
-        throw Error('Need pass order price');
+        throw Error("Need pass order price");
       }
 
       if (!data.stopPx) {
-        throw Error('Need pass stop order price');
+        throw Error("Need pass stop order price");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -759,47 +809,50 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'StopLimit',
+        type: "StopLimit",
         symbol,
         price,
         stopPx,
+        execInst: "LastPrice"
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            stopPx: el.stopPx,
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              stopPx: el.stopPx,
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
 
-    if (data.type === 'MarginalStopMarket') {
+    if (data.type === "MarginalStopMarket") {
       if (!data.volume) {
-        throw Error('Need pass volume');
+        throw Error("Need pass volume");
       }
 
       if (!data.stopPx) {
-        throw Error('Need pass stop order price');
+        throw Error("Need pass stop order price");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -817,47 +870,50 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'Stop',
+        type: "Stop",
         symbol,
         price: null,
         stopPx,
+        execInst: "LastPrice"
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            stopPx: el.stopPx,
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              stopPx: el.stopPx,
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
 
-    if (data.type === 'MarginalTakeLimit') {
+    if (data.type === "MarginalTakeLimit") {
       if (!data.price) {
-        throw Error('Need pass order price');
+        throw Error("Need pass order price");
       }
 
       if (!data.stopPx) {
-        throw Error('Need pass stop order price');
+        throw Error("Need pass stop order price");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -881,46 +937,49 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'LimitIfTouched',
+        type: "LimitIfTouched",
         symbol,
         price,
         stopPx,
+        execInst: "LastPrice"
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            stopPx: el.stopPx,
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              stopPx: el.stopPx,
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
 
-    if (data.type === 'MarginalTakeMarket') {
+    if (data.type === "MarginalTakeMarket") {
       if (!data.stopPx) {
-        throw Error('Need pass stop order price');
+        throw Error("Need pass stop order price");
       }
       if (!data.volume) {
-        throw Error('Need pass volume');
+        throw Error("Need pass volume");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -938,43 +997,46 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'MarketIfTouched',
+        type: "MarketIfTouched",
         symbol,
         price: null,
         stopPx,
+        execInst: "LastPrice"
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            stopPx: el.stopPx,
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              stopPx: el.stopPx,
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
 
-    if (data.type === 'MarginalTrailingStop') {
+    if (data.type === "MarginalTrailingStop") {
       if (!data.trailValue) {
-        throw Error('Need to pass trailValue');
+        throw Error("Need to pass trailValue");
       }
 
       const tickSize = await this.getPairs().then(r =>
@@ -992,42 +1054,45 @@ export default class BitmexTestNet extends Exchanges {
       const payload = {
         orderQty: data.volume,
         side: this.capitalize(data.side),
-        type: 'Stop',
+        type: "Stop",
         symbol,
         pegOffsetValue: trailValue,
-        pegPriceType: 'TrailingStopPeg',
+        pegPriceType: "TrailingStopPeg",
         price: null,
         stopPx: null,
+        execInst: "LastPrice"
       };
-      return this._pCall('/api/v1/order', payload, 'POST', credentials).then(el => {
-        const timestamp = new Date(el.timestamp).getTime();
-        const lastTimestamp = new Date(el.transactTime).getTime();
-        const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
-        return [
-          {
-            stopPx: el.stopPx,
-            trailValue: el.pegOffsetValue,
-            id: el.orderID,
-            timestamp,
-            lastTradeTimestamp: lastTimestamp,
-            status: this.status[el.ordStatus],
-            symbol,
-            type: this.recognizeType(el.ordType, el.pegOffsetValue),
-            side: el.side.toLowerCase(),
-            price: el.price,
-            amount: +el.orderQty,
-            executed: el.cumQty,
-            filled: (el.cumQty / el.orderQty) * 100,
-            remaining: el.leavesQty,
-            cost: el.cumQty * el.price,
-            pegPriceType: el.pegPriceType,
-            fee: {
-              symbol: 0,
-              value: 0,
-            },
-          },
-        ];
-      });
+      return this._pCall("/api/v1/order", payload, "POST", credentials).then(
+        el => {
+          const timestamp = new Date(el.timestamp).getTime();
+          const lastTimestamp = new Date(el.transactTime).getTime();
+          const symbol = `${el.symbol.slice(0, 3)}/${el.symbol.slice(3)}`;
+          return [
+            {
+              stopPx: el.stopPx,
+              trailValue: el.pegOffsetValue,
+              id: el.orderID,
+              timestamp,
+              lastTradeTimestamp: lastTimestamp,
+              status: this.status[el.ordStatus],
+              symbol,
+              type: this.recognizeType(el.ordType, el.pegOffsetValue),
+              side: el.side.toLowerCase(),
+              price: el.price,
+              amount: +el.orderQty,
+              executed: el.cumQty,
+              filled: (el.cumQty / el.orderQty) * 100,
+              remaining: el.leavesQty,
+              cost: el.cumQty * el.price,
+              pegPriceType: el.pegPriceType,
+              fee: {
+                symbol: 0,
+                value: 0
+              }
+            }
+          ];
+        }
+      );
     }
   }
 }
