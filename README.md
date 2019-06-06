@@ -7,13 +7,13 @@ A JavaScript library for connecting to realtime public APIs on all cryptocurrenc
 
 Install websocket-crypto-api
 
-```
+```bash
 npm install websocket-crypto-api
 ```
 
 Create a new client for an exchange. And use class methods as below.
 
-```
+```javascript
 import webca from 'websocket-crypto-api'
 
 const exchangeName = 'binance'
@@ -24,7 +24,7 @@ const webca = new webca[exchangeName]()
 
 subscribe to Klines, Trades and Orderbook just as
 
-```
+```javascript
 webca.onKline(pair, data => {
   console.log(data)
 });
@@ -38,14 +38,14 @@ webca.onTrade(pair, data => {
 
 and unsubscribe
 
-```
+```javascript
 webca.closeKline();
 webca.closeOB();
 webca.closeTrade();
 ```
 
 Then we have some getters.
-```
+```javascript
 webca.getPairs()
 webca.getKline(pair, resolution, from, to)
 webca.getExchangeConfig()
@@ -55,7 +55,7 @@ webca.getExchangeConfig()
 
 All private methods requires api keys and some args.. All other args are required.
 
-```
+```javascript
 webca.getBalance({ apiKey, apiSecret })
 webca.getClosedOrders({ apiKey, apiSecret }, { pair })
 webca.getOpenOrders({ apiKey, apiSecret })
@@ -75,7 +75,7 @@ All methods but getExchangeConfig() returns a promise.
 
 Order has the below shape, createOrder, cancelOrder, getClosedOrders, getOpenOrders, getAllOrders. And they all returns array of orders.
 
-```
+```javascript
   const order = {
     amount: 12,
     cost: 68124,
@@ -101,7 +101,7 @@ Order has the below shape, createOrder, cancelOrder, getClosedOrders, getOpenOrd
 
 Position has following shape. getPositions and setLeverage currently returns array of positions.
 
-```
+```javascript
   const position = {
     amount: -12,
     crossMargin: true,
@@ -121,7 +121,7 @@ Position has following shape. getPositions and setLeverage currently returns arr
 
 Balances:
 
-```
+```javascript
 //exchange field for exchange balance and trading for margin.
   const balances = {
     exchange: {
@@ -139,7 +139,7 @@ Balances:
 
 Pair:
 
-```
+```javascript
   const pair = {
     base: 'BNB',
     high: 0.00357,
@@ -156,7 +156,7 @@ Pair:
 
 Kline:
 
-```
+```javascript
 [
       {
         close: 7915.74,
@@ -171,7 +171,7 @@ Kline:
 
 exchangeConfig:
 
-```
+```javascript
       margin: {
         isActive: true,
         componentList: ['position', 'open', 'history', 'balance'],
@@ -198,7 +198,7 @@ exchangeConfig:
 
 data from onTrade:
 
-```
+```javascript
       const trade = {
         amount: 0.001505,
         exchange: 'binance',
@@ -212,7 +212,7 @@ data from onTrade:
 
 data from onDepthUpdate:
 
-```
+```javascript
       const update = {
         asks: [[7285.37, 0.001594], [7285.38, 0.051328], [7285.39, 0], [7285.4, 0.132504]],
         bids: [[7285.38, 0.051328], [7285.39, 0]],
