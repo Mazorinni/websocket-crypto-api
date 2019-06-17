@@ -1,6 +1,6 @@
 import ReWS from 'reconnecting-websocket';
 import Exchanges from './baseExchange';
-
+import {Decimal} from 'decimal.js';
 
 
 export default class HitBTC extends Exchanges {
@@ -19,9 +19,9 @@ export default class HitBTC extends Exchanges {
         JSON.stringify({
           method: 'subscribeOrderbook',
           params: {
-            symbol
+            symbol,
           },
-          id: 123
+          id: 123,
         }),
       depthLevel: symbol =>
         `${
@@ -31,19 +31,19 @@ export default class HitBTC extends Exchanges {
         JSON.stringify({
           method: 'subscribeTrades',
           params: {
-            symbol
+            symbol,
           },
-          id: 123
+          id: 123,
         }),
       kline: (symbol, interval) =>
         JSON.stringify({
           method: 'subscribeCandles',
           params: {
             symbol,
-            period: this.times[interval]
+            period: this.times[interval],
           },
-          id: 123
-        })
+          id: 123,
+        }),
     };
 
     this.times = {
@@ -55,7 +55,7 @@ export default class HitBTC extends Exchanges {
       '60': 'H1',
       '240': 'H4',
       '1D': 'D1',
-      '1W': 'D7'
+      '1W': 'D7',
     };
 
     this.ms = {
@@ -68,7 +68,7 @@ export default class HitBTC extends Exchanges {
       '240': 4 * 60 * 60 * 1000,
       '1D': 24 * 60 * 60 * 1000,
       '1W': 7 * 24 * 60 * 60 * 1000,
-      '1M': 30 * 24 * 60 * 60 * 1000
+      '1M': 30 * 24 * 60 * 60 * 1000,
     };
 
     this.stable_coins = ['USD', 'PAX', 'SDC', 'SDT', 'URS'];
@@ -79,7 +79,7 @@ export default class HitBTC extends Exchanges {
       partiallyFilled: 'open',
       filled: 'closed',
       canceled: 'canceled',
-      expired: 'canceled'
+      expired: 'canceled',
     };
   }
 
@@ -88,12 +88,12 @@ export default class HitBTC extends Exchanges {
       exchange: {
         isActive: true,
         componentList: ['open', 'history', 'balance'],
-        orderTypes: ['limit', 'market']
+        orderTypes: ['limit', 'market'],
       },
       margin: {
-        isActive: false
+        isActive: false,
       },
-      intervals: this.getSupportedInterval()
+      intervals: this.getSupportedInterval(),
     };
   }
 
@@ -105,7 +105,7 @@ export default class HitBTC extends Exchanges {
     const ws = new ReWS(this._mainUrl, [], {
       WebSocket: this.websocket,
       connectionTimeout: 5000,
-      debug: false
+      debug: false,
     });
 
     ws.onopen = () => ws.send(path);
@@ -147,7 +147,7 @@ export default class HitBTC extends Exchanges {
             price: +e.price,
             amount: +e.quantity,
             symbol,
-            exchange: 'hitbtc'
+            exchange: 'hitbtc',
           };
           eventHandler(trade);
         });
@@ -166,7 +166,7 @@ export default class HitBTC extends Exchanges {
       bids: [],
       type: 'update',
       exchange: 'hitbtc',
-      symbol
+      symbol,
     };
     const handler = res => {
       if (res.hasOwnProperty('method'))
@@ -177,7 +177,7 @@ export default class HitBTC extends Exchanges {
               bids: [],
               type: 'update',
               exchange: 'hitbtc',
-              symbol
+              symbol,
             };
             res = res.params;
             res.ask.forEach(r => data.asks.push([+r.price, +r.size]));
@@ -199,7 +199,7 @@ export default class HitBTC extends Exchanges {
           bids: [],
           type: 'snapshot',
           exchange: 'hitbtc',
-          symbol
+          symbol,
         };
         res.ask.slice(0, 20).forEach(r => data.asks.push([+r.price, +r.size]));
         res.bid.slice(0, 20).forEach(r => data.bids.push([+r.price, +r.size]));
@@ -216,7 +216,7 @@ export default class HitBTC extends Exchanges {
             bids: [],
             type: 'snapshot',
             exchange: 'hitbtc',
-            symbol
+            symbol,
           };
           res.ask.slice(0, 20).forEach(r => data.asks.push([+r.price, +r.size]));
           res.bid.slice(0, 20).forEach(r => data.bids.push([+r.price, +r.size]));
@@ -242,7 +242,7 @@ export default class HitBTC extends Exchanges {
             low: +data.min,
             open: +data.open,
             time: date.getTime(),
-            volume: +data.volume
+            volume: +data.volume,
           };
           eventHandler(newData);
         }
@@ -253,14 +253,14 @@ export default class HitBTC extends Exchanges {
 
   async getPairs() {
     return await fetch(
-      `${this._proxy_enable ? this._proxy : 'https://api.hitbtc.com/api/2/public/ticker'}`
+      `${this._proxy_enable ? this._proxy : 'https://api.hitbtc.com/api/2/public/ticker'}`,
     )
       .then(r => r.json())
       .then(r => {
         const pairs = {
           BTC: [],
           ALT: [],
-          STABLE: []
+          STABLE: [],
         };
         const fullList = {};
         r.forEach(pair => {
@@ -277,7 +277,7 @@ export default class HitBTC extends Exchanges {
             quote: target,
             base,
             maxLeverage: 0,
-            tickSize: 0
+            tickSize: 0,
           };
           if (data.price !== 0) {
             if (base === 'BTC') {
@@ -295,7 +295,7 @@ export default class HitBTC extends Exchanges {
   }
 
   async getKline(pair = 'BTC/USD', interval = 60, start, end) {
-    if (!end) end = new Date().getTime()/1000;
+    if (!end) end = new Date().getTime() / 1000;
     const symbol = pair.replace('/', '');
     const endTime = new Date(end * 1000).toISOString();
     const startTime = new Date(end * 1000 - 1000 * this.ms[interval]).toISOString();
@@ -305,7 +305,7 @@ export default class HitBTC extends Exchanges {
         this._proxy_enable ? this._proxy : ''
         }https://api.hitbtc.com/api/2/public/candles/${symbol}?period=${
         this.times[interval]
-        }&limit=1000&from=${startTime}&till=${endTime}`
+        }&limit=1000&from=${startTime}&till=${endTime}`,
     )
       .then(r => r.json())
       .then(r => {
@@ -318,7 +318,7 @@ export default class HitBTC extends Exchanges {
             high: +obj.max,
             low: +obj.min,
             close: +obj.close,
-            volume: +obj.volumeQuote
+            volume: +obj.volumeQuote,
           });
         });
         return newCandles;
@@ -341,8 +341,8 @@ export default class HitBTC extends Exchanges {
       method,
       headers: new Headers({
         'Authorization': `Basic ${btoa(`${apiKey}:${apiSecret}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      })
+        'Content-Type': 'application/x-www-form-urlencoded',
+      }),
     };
 
     if (method === 'POST') {
@@ -353,16 +353,18 @@ export default class HitBTC extends Exchanges {
       params.body = formData;
     }
     return fetch(
-      `${this.BASE}${path}${method !== 'POST' ? this.makeQueryString(data) : ''}`, params
+      `${this.BASE}${path}${method !== 'POST' ? this.makeQueryString(data) : ''}`, params,
     ).then((r) => {
-      // if (r.status === 401) throw new Error('Invalid api keys or insufficient permissions');
+      if (r.status === 503) throw new Error('Service Unavailable');
       // if (r.status === 419) throw new Error('Probably, there is another terminal running on this IP. Currently only one terminal per IP allowed');
       // if (r.status === 429) throw new Error('Probably, there is another terminal running on this IP. Currently only one terminal per IP allowed');
       return r.json();
     }).then(responce => {
-      // if (responce.code === -1021) throw new Error('You have different time/date with server. Check your local time/date settings');
-      // if (responce.code === -1022) throw new Error('Invalid api keys or insufficient permissions');
-      // if (responce.code === -2010) throw new Error('Account has insufficient balance');
+      if (responce.error) {
+        // if (responce.code === -1021) throw new Error('You have different time/date with server. Check your local time/date settings');
+        // if (responce.code === -1022) throw new Error('Invalid api keys or insufficient permissions');
+        if (responce.error.code === 20001) throw new Error('Account has insufficient balance');
+      }
       return responce;
     });
   };
@@ -378,7 +380,7 @@ export default class HitBTC extends Exchanges {
               coin: element.currency,
               free: element.available,
               used: element.reserved,
-              total: element.reserved + element.available
+              total: element.reserved + element.available,
             };
           }
         });
@@ -411,8 +413,8 @@ export default class HitBTC extends Exchanges {
           cost: order.price * (+order.cumQuantity),
           fee: {
             symbol: 0,
-            value: 0
-          }
+            value: 0,
+          },
         };
       });
     });
@@ -441,8 +443,8 @@ export default class HitBTC extends Exchanges {
           cost: order.price * (+order.cumQuantity),
           fee: {
             symbol: 0,
-            value: 0
-          }
+            value: 0,
+          },
         };
       }).filter(order => order.status === 'closed');
     });
@@ -458,45 +460,109 @@ export default class HitBTC extends Exchanges {
   }
 
   async createOrder({ apiKey, apiSecret }, data) {
-    if (!data) {
-      throw Error('Need pass oder data object');
-    }
-    if (!data.type) {
-      throw Error('Need pass order type');
-    }
-    if (!data.pair) {
-      throw Error('Need pass order pair');
-    }
-    if (!data.side) {
-      throw Error('Need pass order side');
-    }
-    if (!data.volume) {
-      throw Error('Need pass order volume');
-    }
-    const path = '/api/2/order';
-    const body = {
-      symbol: data.pair.replace('/', ''),
-      side: data.side,
-      type: data.type,
-      quantity: data.volume
-    };
+    return this.getSymbolInfo(data.pair).then(info => {
+      if (!data) {
+        throw Error('Need pass oder data object');
+      }
+      if (!data.type) {
+        throw Error('Need pass order type');
+      }
+      if (!data.pair) {
+        throw Error('Need pass order pair');
+      }
+      if (!data.side) {
+        throw Error('Need pass order side');
+      }
+      if (!data.volume) {
+        throw Error('Need pass order volume');
+      }
 
-    if (data.type === 'limit') {
-      body.price = +data.price;
-    }
+      const tickSize_d = new Decimal(info.tickSize);
+      const rate_d = new Decimal(1 + info.takeLiquidityRate);
+      const volume_d = new Decimal(data.volume);
 
-    if (data.type.indexOf('stop') !== -1) {
-      body.stopPrice = +data.stopPrice;
-    }
-    return this.pCall(path, apiKey, apiSecret, 'POST', body).then(
-      res => this.getAllOrders({ apiKey, apiSecret }, { pair: data.pair, orderId: res.clientOrderId })
-    );
+      const volumePres = volume_d
+        .div(rate_d);
+
+
+      data.volume = +volumePres.toNumber().toFixed(8);
+
+      const path = '/api/2/order';
+      const body = {
+        symbol: data.pair.replace('/', ''),
+        side: data.side,
+        type: data.type,
+        quantity: data.volume,
+      };
+
+      if (data.type === 'limit') {
+        const price_d = new Decimal(data.price);
+        const pricePres = price_d
+          .div(tickSize_d)
+          .floor()
+          .mul(tickSize_d);
+        data.price = pricePres.toNumber();
+
+        body.price = +data.price;
+      }
+
+      if (data.type.indexOf('stop') !== -1) {
+        const stopprice_d = new Decimal(data.stopPrice);
+        const stoppricePres = price_d
+          .div(tickSize_d)
+          .floor()
+          .mul(tickSize_d);
+        data.stopPrice = stoppricePres.toNumber();
+
+        body.stopPrice = +data.stopPrice;
+      }
+      return this.pCall(path, apiKey, apiSecret, 'POST', body).then(
+        order => {
+          return [{
+            id: order.clientOrderId,
+            timestamp: new Date(order.createdAt).getTime(),
+            lastTradeTimestamp: new Date(order.updatedAt).getTime(),
+            status: this.status[order.status],
+            symbol: data.pair,
+            type: order.type,
+            side: order.side,
+            price: +order.price,
+            stopPx: order.stopPrice ? +order.stopPrice : order.stopPrice,
+            amount: +order.quantity,
+            executed: +order.cumQuantity,
+            filled: ((+order.cumQuantity) / +order.quantity) * 100,
+            remaining: +order.quantity - +order.cumQuantity,
+            cost: order.price * (+order.cumQuantity),
+            fee: {
+              symbol: 0,
+              value: 0,
+            },
+          }];
+        },
+      ).then(data => {
+        console.log('CREATE ORDER', data);
+        return data;
+      });
+    });
   }
 
   cancelOrder({ apiKey, apiSecret }, { pair, orderId }) {
     const path = `/api/2/order/${orderId}`;
     return this.pCall(path, apiKey, apiSecret, 'DELETE').then((res) => {
       return [{ id: res.clientOrderId }];
+    });
+  }
+
+
+  getSymbolInfo(pair) {
+    const path = `${this.BASE}/api/2/public/symbol/${pair.replace('/', '')}`;
+    return fetch(path).then(r => r.json()).then((res) => {
+      return {
+        quantityIncrement: +res.quantityIncrement,
+        tickSize: +res.tickSize,
+        takeLiquidityRate: +res.takeLiquidityRate,
+        provideLiquidityRate: +res.provideLiquidityRate,
+      };
     });
   }
 
