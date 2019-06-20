@@ -202,7 +202,7 @@ export default class HitBTC extends Exchanges {
           let numSub = 3;
           if (pair.symbol.endsWith('ht')) numSub = 2;
           if (pair.symbol.endsWith('usdt') || pair.symbol.endsWith('husd')) numSub = 4;
-
+          pair.symbol = pair.symbol.toUpperCase();
           const base = pair.symbol.substr(pair.symbol.length - numSub);
           const target = pair.symbol.substr(0, pair.symbol.length - numSub);
           const symbol = `${target}/${base}`;
