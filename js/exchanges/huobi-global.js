@@ -1,24 +1,23 @@
 import ReWS from 'reconnecting-websocket';
 import Exchanges from './baseExchange';
 import pako from 'pako';
+import CryptoJS from 'crypto-js';
 
 
-export default class HitBTC extends Exchanges {
+export default class HuobiG extends Exchanges {
   constructor(proxy) {
     super();
-    this.name = 'HitBTC';
-    this._mainUrl = 'wss://api.huobi.pro/ws';
+    this.name = 'Huobi Global';
+    this._mainUrl = 'wss://api.huobi.pro/ws`';
     this._sockets = {};
 
     this._proxy = proxy;
     this._proxy_enable = !!proxy;
-    this.BASE = `${this._proxy_enable ? this._proxy : ''}https://api.hitbtc.com`;
+    this.BASE = `${this._proxy_enable ? this._proxy : ''}https://api.huobi.pro`;
 
     this.streams = {
       depth: symbol =>
         JSON.stringify({ 'sub': `market.${symbol}.depth.step0`, 'id': '133' }),
-      depthLevel: symbol =>
-        `${this._proxy_enable ? this._proxy : ''}https://api.huobi.pro/market/depth?symbol=${symbol}&type=step0`,
       trade: symbol =>
         JSON.stringify({ 'sub': `market.${symbol}.trade.detail`, 'id': '133' }),
       kline: (symbol, interval) =>
@@ -49,14 +48,14 @@ export default class HitBTC extends Exchanges {
     this.stable_coins = ['USDT', 'HUSD'];
 
     this.status = {
-      new: 'open',
-      suspended: 'open',
-      partiallyFilled: 'open',
+      submitted: 'open',
+      'partial-filled': 'open',
       filled: 'closed',
+      'partial-canceled': 'canceled',
       canceled: 'canceled',
-      expired: 'canceled',
     };
   }
+
 
   getExchangeConfig() {
     return {
@@ -119,7 +118,6 @@ export default class HitBTC extends Exchanges {
       if (res.hasOwnProperty('tick')) {
         res = res.tick.data;
         res.forEach(e => {
-          const data = new Date(e.timestamp);
           const trade = {
             id: e.id,
             side: e.direction,
@@ -139,14 +137,6 @@ export default class HitBTC extends Exchanges {
 
   onDepthUpdate(symbol, eventHandler) {
     const newSymbol = symbol.replace('/', '').toLowerCase();
-    let SnapshotAccepted = false;
-    const uBuffer = {
-      asks: [],
-      bids: [],
-      type: 'update',
-      exchange: 'hitbtc',
-      symbol,
-    };
     const handler = res => {
       if (res.hasOwnProperty('tick')) {
         const data = {
@@ -256,6 +246,285 @@ export default class HitBTC extends Exchanges {
         });
         return newCandles.reverse();
       });
+  }
+
+  makeQueryString(q) {
+    return q
+      ? `?${Object.keys(q).sort()
+        .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(q[k])}`)
+        .join('&')}`
+      : '';
+  }
+
+  digitFormat(a) {
+    if (a < 10) {
+      return `0${a}`;
+    }
+    return `${a}`;
+  }
+
+  timeFormat(a) {
+    const year = this.digitFormat(a.getFullYear());
+    const month = this.digitFormat(a.getMonth() + 1);
+    const day = this.digitFormat(a.getDate());
+    const hour = this.digitFormat(a.getHours());
+    const minute = this.digitFormat(a.getMinutes());
+    const second = this.digitFormat(a.getSeconds());
+    const str = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    return str;
+  }
+
+
+  async pCall(path, apiKey, apiSecret, method = 'GET', data = {}) {
+    if (!apiKey || !apiSecret) {
+      throw new Error('You need to pass an API key and secret to make authenticated calls.');
+    }
+
+    const date = new Date();
+    date.setTime(date.getTime() + date.getTimezoneOffset() * 60 * 1000);
+    data.Timestamp = this.timeFormat(date);
+    data.AccessKeyId = apiKey;
+    data.SignatureMethod = 'HmacSHA256';
+    data.SignatureVersion = '2';
+
+    const dirUrl = path.replace(/.*\/\/[^\/]*/, '');
+
+    // Add new format querry string
+    // const querryString = `AccessKeyId=e2xxxxxx-99xxxxxx-84xxxxxx-7xxxx&SignatureMethod=HmacSHA256&SignatureVersion=2&Timestamp=2017-05-11T15%3A19%3A30`;
+
+    const signString = `${method}\n${this.BASE.replace('https://', '')}\n${path}\n${this.makeQueryString(data).replace('?', '')}`;
+
+    const signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(signString, apiSecret));
+
+    const dataString = this.makeQueryString(data) + '&Signature=' + encodeURIComponent(signature);
+
+    const prom = method === 'GET' ?
+      fetch(`${this.BASE}${path}${dataString}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      :
+      fetch(`${this.BASE}${path}${dataString}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+    return prom.then((r) => {
+      // if (r.status === 401) throw new Error('Invalid api keys or insufficient permissions');
+      // if (r.status === 419) throw new Error('Probably, there is another terminal running on this IP. Currently only one terminal per IP allowed');
+      // if (r.status === 429) throw new Error('Probably, there is another terminal running on this IP. Currently only one terminal per IP allowed');
+      return r.json();
+    }).then(response => {
+      if (response.status === 'error') throw new Error(`huobi ${response['err-msg']}`);
+      // if (response.code === -1021) throw new Error('You have different time/date with server. Check your local time/date settings');
+      // if (response.code === -1022) throw new Error('Invalid api keys or insufficient permissions');
+      // if (response.code === -2010) throw new Error('Account has insufficient balance');
+      return response;
+    });
+  }
+
+  getBalance({ apiKey, apiSecret }) {
+    return this.pCall('/v1/account/accounts', apiKey, apiSecret).then(res => {
+      const result = { exchange: {} };
+      const proms = res.data.map(({ id }) => {
+        return this.pCall(`/v1/account/accounts/${id}/balance`, apiKey, apiSecret).then(res => {
+          res.data.list.forEach(el => {
+            if (+el.balance > 0) {
+              if (!result.exchange[el.currency.toUpperCase()]) {
+                result.exchange[el.currency.toUpperCase()] = {
+                  coin: el.currency.toUpperCase(),
+                  free: 0,
+                  used: 0,
+                  total: 0,
+                };
+              }
+              if (el.type === 'trade') result.exchange[el.currency.toUpperCase()].free = +el.balance;
+              if (el.type === 'frozen') result.exchange[el.currency.toUpperCase()].used = +el.balance;
+              result.exchange[el.currency.toUpperCase()].total = result.exchange[el.currency.toUpperCase()].free + result.exchange[el.currency.toUpperCase()].used;
+            }
+          });
+        });
+      });
+      return Promise.all(proms).then(() => {
+        console.log('getBalance', result);
+        return result;
+      });
+    });
+  }
+
+  async getOpenOrders({ apiKey, apiSecret }) {
+
+    return this.pCall('/v1/order/openOrders', apiKey, apiSecret, 'GET', {
+      size: 2000,
+    }).then(res => {
+      return res.data.map(order => {
+        const [side, type] = order.type.split('-');
+        let numSub = 3;
+        if (order.symbol.endsWith('ht')) numSub = 2;
+        if (order.symbol.endsWith('usdt') || order.symbol.endsWith('husd')) numSub = 4;
+        order.symbol = order.symbol.toUpperCase();
+        const base = order.symbol.substr(order.symbol.length - numSub);
+        const target = order.symbol.substr(0, order.symbol.length - numSub);
+        const symbol = `${target}/${base}`;
+        return {
+          id: order.id,
+          timestamp: new Date(order['created-at']).getTime(),
+          lastTradeTimestamp: new Date(order['created-at']).getTime(),
+          status: this.status[order.state],
+          symbol: symbol,
+          type: type,
+          side: side,
+          price: +order.price,
+          stopPx: 0,
+          amount: +order.amount,
+          executed: +order['filled-amount'],
+          filled: ((+order['filled-amount']) / +order.amount) * 100,
+          remaining: +order.quantity - +order.cumQuantity,
+          cost: +order.price * (+order.amount),
+          fee: {
+            symbol: 0,
+            value: 0,
+          },
+        };
+      });
+    }).then(res => {
+      console.log('getOpenOrders', res);
+      return res;
+    });
+
+    // account-id: 6683454
+    // amount: "50.000000000000000000"
+    // created-at: 1561456814794
+    // filled-amount: "0.0"
+    // filled-cash-amount: "0.0"
+    // filled-fees: "0.0"
+    // id: 38268159150
+    // price: "0.090000000000000000"
+    // source: "web"
+    // state: "submitted"
+    // symbol: "adausdt"
+    // type: "buy-limit"
+
+  }
+
+
+  async getAllOrders({ apiKey, apiSecret }, { pair, status, orderId } = {}) {
+    const closed = await this.getClosedOrders({ apiKey, apiSecret }, { pair });
+    const opened = await this.getOpenOrders({ apiKey, apiSecret });
+    console.log('GAVNOVHUIAH', closed, opened);
+    const allOrders = [...closed, ...opened];
+
+    if (orderId) return allOrders.filter(order => order.id === orderId);
+    if (orderId) return allOrders.filter(order => order.status === status);
+    return allOrders;
+  }
+
+  async getClosedOrders({ apiKey, apiSecret }, { pair } = {}) {
+    return this.pCall('/v1/account/accounts', apiKey, apiSecret).then(res => {
+      const result = [];
+      const proms = res.data.map(({ id }) => {
+        return this.pCall('/v1/order/orders', apiKey, apiSecret, 'GET', {
+          symbol: pair.replace('/', '').toLowerCase(),
+          states: 'partial-canceled,filled,canceled',
+          size: 100,
+          'account-id': id,
+        }).then(res => {
+          res.data.forEach(order => {
+            const [side, type] = order.type.split('-');
+            let numSub = 3;
+            if (order.symbol.endsWith('ht')) numSub = 2;
+            if (order.symbol.endsWith('usdt') || order.symbol.endsWith('husd')) numSub = 4;
+            order.symbol = order.symbol.toUpperCase();
+            const base = order.symbol.substr(order.symbol.length - numSub);
+            const target = order.symbol.substr(0, order.symbol.length - numSub);
+            const symbol = `${target}/${base}`;
+            result.push({
+              id: order.id,
+              timestamp: new Date(order['created-at']).getTime(),
+              lastTradeTimestamp: new Date(order['created-at']).getTime(),
+              status: this.status[order.state],
+              symbol: symbol,
+              type: type,
+              side: side,
+              price: +order.price,
+              stopPx: 0,
+              amount: +order.amount,
+              executed: +order['filled-amount'],
+              filled: ((+order['filled-amount']) / +order.amount) * 100,
+              remaining: +order.quantity - +order.cumQuantity,
+              cost: +order.price * (+order.amount),
+              fee: {
+                symbol: 0,
+                value: 0,
+              },
+            });
+          });
+        });
+      });
+
+      return Promise.all(proms).then(() => result);
+    });
+  }
+
+  async cancelOrder({ apiKey, apiSecret }, { pair, orderId }) {
+    return this.pCall(`/v1/order/orders/${orderId}/submitcancel`, apiKey, apiSecret, 'POST', {}).then(res => {
+      console.log('cancelOrder', res);
+      return this.getAllOrders({ apiKey, apiSecret }, { pair, orderId });
+    });
+  }
+
+  async createOrder({ apiKey, apiSecret }, data) {
+
+    if (!data) {
+      throw Error('Need pass oder data object');
+    }
+    if (!data.type) {
+      throw Error('Need pass order type');
+    }
+    if (!data.pair) {
+      throw Error('Need pass order pair');
+    }
+    if (!data.side) {
+      throw Error('Need pass order side');
+    }
+    if (!data.volume) {
+      throw Error('Need pass order volume');
+    }
+
+    const info = await this.getPairInfo(data.pair);
+
+    return this.pCall('/v1/account/accounts', apiKey, apiSecret).then(res => {
+      const accId = res.data[0].id;
+
+      const payload = {
+        'account-id': `${accId}`,
+        'amount': data.volume.toFixed(info['amount-precision']),
+        'source': 'api',
+        'symbol': data.pair.replace('/', '').toLowerCase(),
+        'type': `${data.side}-${data.type}`.toLowerCase(),
+      };
+
+      if (data.type === 'limit') {
+        if (!data.volume) {
+          throw Error('Need pass order price');
+        }
+        payload.price = (+data.price).toFixed(info['price-precision']);
+      }
+      return this.pCall('/v1/order/orders/place', apiKey, apiSecret, 'POST', payload).then(res => {
+        return this.getAllOrders({ apiKey, apiSecret }, { pair: data.pair, orderId: res.data });
+      });
+
+    });
+  }
+
+  async getPairInfo(pair) {
+    const [base, quote] = pair.toLowerCase().split('/');
+    return fetch(this.BASE + '/v1/common/symbols').then(r => r.json()).then(r => {
+      const res = r.data.filter(coin => coin['base-currency'] === base && coin['quote-currency'] === quote);
+      // console.log('getPairInfo', r, res);
+      return res[0];
+    });
   }
 
 }
