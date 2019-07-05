@@ -232,6 +232,7 @@ data from onDepthUpdate:
 | OKex         | ✅                      | ✅               |                |
 | Poloniex     | ✅                      |                  |                |
 | Crex24       | ✅                      | ✅                | not supported  |
+| Huobi Global | ✅                      | ✅                |                |
 
 ## Plans
 - Addding new exchanges, trade and margin support for existing exchnages
