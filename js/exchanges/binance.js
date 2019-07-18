@@ -53,7 +53,6 @@ export default class Binance extends Exchanges {
       480: "8h",
       720: "12h",
       "1D": "1d",
-      "3D": "3d",
       "1W": "1w",
       "1M": "1M"
     };
@@ -339,7 +338,7 @@ export default class Binance extends Exchanges {
         high: +data.k.h,
         low: +data.k.l,
         open: +data.k.o,
-        time: +data.k.t,
+        time: +data.k.T,
         volume: +data.k.v
       };
       eventHandler(newData);
