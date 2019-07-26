@@ -7,8 +7,8 @@ export default class Exmo extends Exchanges {
     this._sockets = {};
     this._proxy = data.proxy || '';
 
-    this._key = data.key;
-    this._secret = data.secret;
+    // this._key = data.key;
+    // this._secret = data.secret;
 
     this.status = {
       NEW: 'open',
@@ -29,14 +29,14 @@ export default class Exmo extends Exchanges {
       LIMIT_MAKER: 'limit_maker',
     };
 
-    this.types = {
-      limit: 'LIMIT',
-      market: 'MARKET',
-      stop_loss: 'STOP_LOSS',
-      stop_loss_limit: 'STOP_LOSS_LIMIT',
-      take_profit: 'TAKE_PROFIT',
-      take_profit_limit: 'TAKE_PROFIT_LIMIT',
-    };
+    // this.types = {
+    //   limit: 'LIMIT',
+    //   market: 'MARKET',
+    //   stop_loss: 'STOP_LOSS',
+    //   stop_loss_limit: 'STOP_LOSS_LIMIT',
+    //   take_profit: 'TAKE_PROFIT',
+    //   take_profit_limit: 'TAKE_PROFIT_LIMIT',
+    // };
 
     this.stable_coins = ['USD', 'USDT', 'USDC', 'PAX', 'EUR', 'RUB', 'UAH'];
 
@@ -96,7 +96,7 @@ export default class Exmo extends Exchanges {
   onTrade(symbol = 'BTC/USDT', eventHandler) {
     let lastTrade = 0;
 
-    const handler = res => {
+    const handler = () => {
       this.getTrades(symbol).then(r => {
         r.forEach(t => {
           if (t.id > lastTrade) {
@@ -121,16 +121,14 @@ export default class Exmo extends Exchanges {
       });
     };
 
-    const socket = this._setupWebSocket(
+    return this._setupWebSocket(
       handler,
       'orderbook',
     );
-
-    return socket;
   }
 
   onKline(symbol = 'BTC/USDT', interval = 60, eventHandler) {
-    const handler = data => {
+    const handler = () => {
       const now = Date.now() / 1000 | 0;
       this.getKline(symbol, interval, now - this.ms[interval] - 100, now).then(data => {
         eventHandler(data[0]);
