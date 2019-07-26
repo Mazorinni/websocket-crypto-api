@@ -106,7 +106,7 @@ export default class Exmo extends Exchanges {
         });
       });
     };
-
+    handler();
     return this._setupWebSocket(
       handler,
       'trade',
@@ -120,7 +120,7 @@ export default class Exmo extends Exchanges {
         eventHandler(r);
       });
     };
-
+    handler();
     return this._setupWebSocket(
       handler,
       'orderbook',
@@ -134,6 +134,7 @@ export default class Exmo extends Exchanges {
         eventHandler(data[0]);
       });
     };
+    handler();
     return this._setupWebSocket(
       handler,
       'kline',
