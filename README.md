@@ -233,6 +233,7 @@ data from onDepthUpdate:
 | Poloniex     | ✅                      |                  |                |
 | Crex24       | ✅                      | ✅                | not supported  |
 | Huobi Global | ✅                      | ✅                |                |
+| EXMO         | ✅                      |                   |                |
 
 ## Plans
 - Addding new exchanges, trade and margin support for existing exchnages
